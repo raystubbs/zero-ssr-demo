@@ -1,0 +1,7 @@
+.DS_Store
+.cpcache
+.shadow-cljs
+resources/public/node_modules
+resources/public/js
+.idea
+*.iml

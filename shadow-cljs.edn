@@ -1,0 +1,9 @@
+{:deps {:aliases []}
+ :builds {:runtime
+          {:target :browser
+           :output-dir "resources/public/js"
+           :asset-path "/js"
+           :compiler-options {:infer-externs true}
+           :build-hooks [(shadow.cljs.build-report/hook)]
+           :devtools {:watch-dir "resources/public/css" :watch-path "/css"}
+           :modules {:runtime {:init-fn zero.demo.runtime.main/main}}}}}
