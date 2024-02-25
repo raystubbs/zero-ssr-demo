@@ -5,3 +5,5 @@ resources/public/node_modules
 resources/public/js
 .idea
 *.iml
+.clj-kondo
+.lsp

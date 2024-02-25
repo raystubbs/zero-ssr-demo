@@ -5,43 +5,42 @@
     [zero.html :as zh]
     [zero.config :as zc]
     [zero.extras.db :as-alias db]
-    [zero.extras.dom :as-alias zd]
     [cognitect.transit :as t]
     [manifold.stream :as s]
     [aleph.http :as http]
     [clojure.java.io :as io])
   (:import
-    (java.io ByteArrayInputStream ByteArrayOutputStream InputStream)
-    (zero.impl.actions Action)
-    (zero.impl.bindings Binding)
-    (zero.impl.injection Injection)))
+    (java.io ByteArrayInputStream ByteArrayOutputStream InputStream)))
 
 (defonce !posts (atom []))
 (defonce !sockets (atom #{}))
-(defonce !next-stream-id (atom 0))
 
-(def transit-writers
-  (t/write-handler-map
-    {Action (t/write-handler (constantly "act")
-              (fn [^Action a]
-                (t/tagged-value "map" {:props (.-props a) :effects (.-effects a)})))
-     Binding (t/write-handler (constantly "bnd")
-               (fn [^Binding b]
-                 (t/tagged-value "map" {:key (.-stream-key b) :props (.-props b) :args (.-args b)})))
-     Injection (t/write-handler (constantly "inj")
-                 (fn [^Injection i]
-                   (t/tagged-value "map" {:key (.-injector-key i) :args (.-args i)})))}))
+(def default-write-handler
+  (t/write-handler
+   (fn [v]
+     (cond
+       (z/act? v) "act"
+       (z/bnd? v) "bnd"
+       (z/inj? v) "inj"
+       :else (throw (ex-info "can't serialize" {:v v}))))
+   (fn [v]
+     (t/tagged-value
+      "map"
+      (cond
+        (z/act? v) (z/act->map v)
+        (z/bnd? v) (z/bnd->map v)
+        (z/inj? v) (z/inj->map v))))))
 
 (defn ->transit [x]
   (let [out (ByteArrayOutputStream.)]
-    (t/write (t/writer out :json {:handlers transit-writers}) x)
+    (t/write (t/writer out :json {:default-handler default-write-handler}) x)
     (String. ^"[B" (.toByteArray out))))
 
 (def transit-readers
   (t/read-handler-map
-    {"act" (t/read-handler #(apply z/act (:props %) (:effects %)))
-     "bnd" (t/read-handler #(apply z/bnd (:props %) (:key %) (:args %)))
-     "inj" (t/read-handler #(apply z/<< (:key %) (:args %)))}))
+    {"act" (t/read-handler z/map->act)
+     "bnd" (t/read-handler z/map->bnd)
+     "inj" (t/read-handler z/map->inj)}))
 
 (defn <-transit [x]
   (cond
@@ -63,7 +62,7 @@
    [:p (:content post)]])
 
 (defn run-at-clients! [action]
-  {:pre [(instance? Action action)]}
+  {:pre [(z/act? action)]}
   (doseq [s @!sockets]
     (s/put! s (->transit {:kind :action :value action}))))
 
@@ -78,7 +77,7 @@
 (defn attr-writer [v _ _]
   (->transit v))
 
-(zc/reg-attr-writers :demo/* attr-writer ::zd/* attr-writer)
+(zc/reg-attr-writers ::z/* attr-writer)
 
 (defn page
   [_]
@@ -87,7 +86,7 @@
            [:html
             [:head
              [:title "Zero SSR Demo"]
-             [:script#init-db :type "application/transit+json"
+             [:script#init-db :type "application/transit+json" 
               (->transit {:posts-markup [:div (map render-post @!posts)]})]
              [:script :src "/js/runtime.js"]]
             [:body
@@ -96,29 +95,27 @@
                          :grid-template-columns "1fr"
                          :grid-row-gap "0.5rem"
                          :width "25rem"}
-              [::zd/echo
-               :vdom [:input
-                      :placeholder "Title"
-                      :value (bnd ::db/path [:inputs :title])
-                      ::z/on {:input (act [::db/patch [{:path [:inputs :title] :value (<<ctx ::z/event.data)}]])}]]
-              [::zd/echo
-               :vdom [:textarea
-                      :placeholder "Content"
-                      :value (bnd ::db/path [:inputs :content])
-                      ::z/on {:input (act [::db/patch [{:path [:inputs :content] :value (<<ctx ::z/event.data)}]])}]]
+              [:input
+               :placeholder "Title"
+               ::z/bind {:value (bnd ::db/path [:inputs :title])}
+               ::z/on {:input (act [::db/patch [{:path [:inputs :title] :value (<<ctx ::z/event.data)}]])}]
+              [:textarea
+               :placeholder "Content"
+               ::z/bind {:value (bnd ::db/path [:inputs :content])}
+               ::z/on {:input (act [::db/patch [{:path [:inputs :content] :value (<<ctx ::z/event.data)}]])}]
 
-              [:button "Post"
-               [::zd/listen
-                :event "click"
-                :action (act
-                          [:at-server (<<act [:server/create-post (<< ::db/path [:inputs])])]
-                          [::db/patch [{:path [:inputs] :value {}}]])]]]
-             [::zd/echo :vdom-ref (bnd ::db/path [:posts-markup])]]])})
+              [:button
+               ::z/on {:click (act {:log? true}
+                               [:at-server (<<act [:server/create-post (<< ::db/path [:inputs])])]
+                               [::db/patch [{:path [:inputs] :value {}}]])}
+               "Post"]]
+             [::z/echo
+              ::z/bind {:vdom (bnd ::db/path [:posts-markup])}]]])})
 
 (defn handle-msg [s msg]
   (let [{:keys [id kind value] :as parsed} (<-transit msg)]
     (case kind
-      :action (if (instance? Action value)
+      :action (if (z/act? value)
                 (do
                   (value {})
                   (s/put! s (->transit {:id id :kind :response :value :success})))

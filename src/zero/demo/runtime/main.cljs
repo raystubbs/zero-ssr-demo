@@ -1,34 +1,36 @@
 (ns zero.demo.runtime.main
   (:require
     [zero.config :as zc]
-    [zero.core :refer [act bnd <<] :as z]
+    [zero.core :as z]
     [zero.extras.dom :as zd]
     [zero.extras.db :as db]
-    [zero.extras.util :as zu]
-    [cognitect.transit :as t]
-    [zero.impl.actions :refer [Action]]
-    [zero.impl.bindings :refer [Binding]]
-    [zero.impl.injection :refer [Injection]]))
+    [cognitect.transit :as t]))
 
 (def transit-reader
   (t/reader :json
     {:handlers
-     {"act" (fn [{:keys [props effects]}] (apply act props effects))
-      "bnd" (fn [{:keys [key props args]}] (apply bnd props key args))
-      "inj" (fn [{:keys [key args]}] (apply << key args))}}))
+     {"act" z/map->act
+      "bnd" z/map->bnd
+      "inj" z/map->inj}}))
 
 (def transit-writer
   (t/writer :json
     {:handlers
-     {Action (t/write-handler (constantly "act")
-               (fn [^Action a]
-                 (t/tagged-value "map" {:props (.-props a) :effects (.-effects a)})))
-      Binding (t/write-handler (constantly "bnd")
-                (fn [^Binding b]
-                  (t/tagged-value "map" {:key (.-stream-key b) :props (.-props b) :args (.-args b)})))
-      Injection (t/write-handler (constantly "inj")
-                  (fn [^Injection i]
-                    (t/tagged-value "map" {:key (.-injector-key i) :args (.-args i)})))}}))
+     {:default
+      (t/write-handler
+       (fn [v]
+         (cond
+           (z/act? v) "act"
+           (z/bnd? v) "bnd"
+           (z/inj? v) "inj"
+           :else (throw (ex-info "can't serialize" {:v v}))))
+       (fn [v]
+         (t/tagged-value
+          "map"
+          (cond
+            (z/act? v) (z/act->map v)
+            (z/bnd? v) (z/bnd->map v)
+            (z/inj? v) (z/inj->map v)))))}}))
 
 (defn ->transit [x]
   (t/write transit-writer x))
@@ -42,8 +44,8 @@
 (defn attr-writer [x _ _]
   (->transit x))
 
-(zc/reg-attr-readers :demo/* attr-reader ::zd/* attr-reader)
-(zc/reg-attr-writers :demo/* attr-writer ::zd/* attr-writer)
+(zc/reg-attr-readers ::z/* attr-reader)
+(zc/reg-attr-writers ::z/* attr-writer)
 
 (defonce !pending-request-resolvers (atom {}))
 (defonce !ws (atom nil))
@@ -51,8 +53,7 @@
 
 (defn handle-message [{:keys [id kind value]}]
   (case kind
-    :action (do (value {})
-              (js/console.log "db: " (db/get [])))
+    :action (value {})
     :response (when-let [{:keys [resolve reject]} (get @!pending-request-resolvers id)]
                 (case value
                   :success (resolve nil)
@@ -60,7 +61,7 @@
                 (swap! !pending-request-resolvers dissoc id))))
 
 (defn run-at-server! [action & {:keys [on-failure on-success]}]
-  {:pre (instance? Action action)}
+  {:pre (z/act? action)}
   (let [id (swap! !id-seq inc)]
     (->
       (js/Promise.
