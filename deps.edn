@@ -1,6 +1,6 @@
 {:paths ["src" "resources"]
  :deps {binaryage/devtools {:mvn/version "1.0.5"}
-        me.raystubbs/zero {:git/url "git@github.com:raystubbs/zero.git" :git/sha "0507070c4eb3eba498264f13951baa185b0df196"}
+        me.raystubbs/zero {:mvn/version "0.1.4"}
         thheller/shadow-cljs {:mvn/version "2.21.0"}
         aleph/aleph {:mvn/version "0.7.1"}
         com.cognitect/transit-clj {:mvn/version "1.0.333"}

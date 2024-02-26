@@ -78,7 +78,7 @@
 (defn main []
   (db/patch! [{:path [] :value (-> js/document (.getElementById "init-db") .-textContent <-transit)}])
   (let [ws (js/WebSocket. (str "ws://" js/location.host "/socket"))]
-    (zd/listen ws "message" ::ws-message
+    (z/listen ::ws-message ws "message"
       (fn [^js/MessageEvent ev]
         (when (string? (.-data ev))
           (handle-message (<-transit (.-data ev))))))

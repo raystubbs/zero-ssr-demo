@@ -1,7 +1,6 @@
 (ns zero.demo.server.main
   (:require
-    [zero.core :refer [act bnd <<] :as z]
-    [zero.extras.util :refer [<<ctx <<act]]
+    [zero.core :refer [act bnd << <<ctx <<act] :as z]
     [zero.html :as zh]
     [zero.config :as zc]
     [zero.extras.db :as-alias db]
@@ -105,7 +104,7 @@
                ::z/on {:input (act [::db/patch [{:path [:inputs :content] :value (<<ctx ::z/event.data)}]])}]
 
               [:button
-               ::z/on {:click (act {:log? true}
+               ::z/on {:click (act
                                [:at-server (<<act [:server/create-post (<< ::db/path [:inputs])])]
                                [::db/patch [{:path [:inputs] :value {}}]])}
                "Post"]]
