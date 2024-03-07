@@ -2,47 +2,12 @@
   (:require
     [zero.config :as zc]
     [zero.core :as z]
-    [zero.extras.dom :as zd]
     [zero.extras.db :as db]
-    [cognitect.transit :as t]))
+    [zero.extras.cdf :as cdf]))
 
-(def transit-reader
-  (t/reader :json
-    {:handlers
-     {"act" z/map->act
-      "bnd" z/map->bnd
-      "inj" z/map->inj}}))
 
-(def transit-writer
-  (t/writer :json
-    {:handlers
-     {:default
-      (t/write-handler
-       (fn [v]
-         (cond
-           (z/act? v) "act"
-           (z/bnd? v) "bnd"
-           (z/inj? v) "inj"
-           :else (throw (ex-info "can't serialize" {:v v}))))
-       (fn [v]
-         (t/tagged-value
-          "map"
-          (cond
-            (z/act? v) (z/act->map v)
-            (z/bnd? v) (z/bnd->map v)
-            (z/inj? v) (z/inj->map v)))))}}))
-
-(defn ->transit [x]
-  (t/write transit-writer x))
-
-(defn <-transit [s]
-  (t/read transit-reader s))
-
-(defn attr-reader [s _ _]
-  (<-transit s))
-
-(defn attr-writer [x _ _]
-  (->transit x))
+(defn attr-reader [s _ _] (cdf/read-str s))
+(defn attr-writer [x _ _] (cdf/write-str x))
 
 (zc/reg-attr-readers ::z/* attr-reader)
 (zc/reg-attr-writers ::z/* attr-writer)
@@ -67,7 +32,7 @@
       (js/Promise.
         (fn [resolve reject]
           (swap! !pending-request-resolvers assoc id {:resolve resolve :reject reject})
-          (.send ^js/WebSocket @!ws (->transit {:id id :kind :action :value action}))))
+          (.send ^js/WebSocket @!ws (cdf/write-str {:id id :kind :action :value action}))))
       (.then #(some-> on-success (apply nil)))
       (.catch #(some-> on-failure (apply nil))))
     nil))
@@ -76,10 +41,10 @@
   :at-server run-at-server!)
 
 (defn main []
-  (db/patch! [{:path [] :value (-> js/document (.getElementById "init-db") .-textContent <-transit)}])
+  (db/patch! [{:path [] :value (-> js/document (.getElementById "init-db") .-textContent cdf/read-str)}])
   (let [ws (js/WebSocket. (str "ws://" js/location.host "/socket"))]
     (z/listen ::ws-message ws "message"
       (fn [^js/MessageEvent ev]
         (when (string? (.-data ev))
-          (handle-message (<-transit (.-data ev))))))
+          (handle-message (cdf/read-str (.-data ev))))))
     (reset! !ws ws)))
