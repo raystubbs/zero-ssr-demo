@@ -7,3 +7,6 @@ resources/public/js
 *.iml
 .clj-kondo
 .lsp
+.calva
+.nrepl-port
+

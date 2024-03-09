@@ -1,13 +1,14 @@
 (ns zero.demo.server.main
   (:require
-    [zero.core :refer [act bnd << <<ctx <<act] :as z]
-    [zero.html :as zh]
-    [zero.config :as zc]
-    [zero.extras.db :as-alias db]
-    [zero.extras.cdf :as cdf]
-    [manifold.stream :as s]
-    [aleph.http :as http]
-    [clojure.java.io :as io]))
+   [zero.core :refer [act bnd << <<ctx <<act] :as z]
+   [zero.html :as zh]
+   [zero.config :as zc]
+   [zero.extras.db :as-alias db]
+   [zero.dom :as-alias dom]
+   [zero.extras.cdf :as cdf]
+   [manifold.stream :as s]
+   [aleph.http :as http]
+   [clojure.java.io :as io]))
 
 (defonce !posts (atom []))
 (defonce !sockets (atom #{}))
@@ -38,7 +39,7 @@
 
 (defn attr-writer [v _ _] (cdf/write-str v))
 
-(zc/reg-attr-writers ::z/* attr-writer)
+(zc/reg-attr-writers ::dom/* attr-writer)
 
 (defn page
   [_]
@@ -70,7 +71,7 @@
                                 [:at-server (<<act [:server/create-post (<< ::db/path [:inputs])])]
                                 [::db/patch [{:path [:inputs] :value {}}]])}
                "Post"]]
-             [::z/echo
+             [::dom/echo
               ::z/bind {:vdom (bnd ::db/path [:posts-markup])}]]])})
 
 (defn handle-msg [s msg]

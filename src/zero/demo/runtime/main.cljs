@@ -1,16 +1,18 @@
 (ns zero.demo.runtime.main
   (:require
-    [zero.config :as zc]
-    [zero.core :as z]
-    [zero.extras.db :as db]
-    [zero.extras.cdf :as cdf]))
+   [zero.config :as zc]
+   [zero.core :as z]
+   [zero.extras.db :as db]
+   [zero.extras.cdf :as cdf]
+   [zero.component]
+   [zero.dom :as dom]))
 
 
 (defn attr-reader [s _ _] (cdf/read-str s))
 (defn attr-writer [x _ _] (cdf/write-str x))
 
-(zc/reg-attr-readers ::z/* attr-reader)
-(zc/reg-attr-writers ::z/* attr-writer)
+(zc/reg-attr-readers ::dom/* attr-reader)
+(zc/reg-attr-writers ::dom/* attr-writer)
 
 (defonce !pending-request-resolvers (atom {}))
 (defonce !ws (atom nil))
@@ -43,7 +45,7 @@
 (defn main []
   (db/patch! [{:path [] :value (-> js/document (.getElementById "init-db") .-textContent cdf/read-str)}])
   (let [ws (js/WebSocket. (str "ws://" js/location.host "/socket"))]
-    (z/listen ::ws-message ws "message"
+    (dom/listen ::ws-message ws "message"
       (fn [^js/MessageEvent ev]
         (when (string? (.-data ev))
           (handle-message (cdf/read-str (.-data ev))))))
