@@ -1,18 +1,12 @@
-(ns zero.demo.runtime.main
+(ns demo.runtime.main
   (:require
    [zero.config :as zc]
    [zero.core :as z]
    [zero.extras.db :as db]
    [zero.extras.cdf :as cdf]
+   [demo.shared]
    [zero.component]
    [zero.dom :as dom]))
-
-
-(defn attr-reader [s _ _] (cdf/read-str s))
-(defn attr-writer [x _ _] (cdf/write-str x))
-
-(zc/reg-attr-readers ::dom/* attr-reader)
-(zc/reg-attr-writers ::dom/* attr-writer)
 
 (defonce !pending-request-resolvers (atom {}))
 (defonce !ws (atom nil))

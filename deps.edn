@@ -1,5 +1,5 @@
 {:paths ["src" "resources"]
  :deps {binaryage/devtools {:mvn/version "1.0.5"}
-        me.raystubbs/zero {:mvn/version "0.1.6"}
+        io.github.raystubbs/zero {:git/sha "70a72dfb0b62a30b48b0dfa25c0f82d0cb0470c4"}
         thheller/shadow-cljs {:mvn/version "2.21.0"}
         aleph/aleph {:mvn/version "0.7.1"}}}

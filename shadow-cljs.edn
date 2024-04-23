@@ -6,4 +6,4 @@
            :compiler-options {:infer-externs true}
            :build-hooks [(shadow.cljs.build-report/hook)]
            :devtools {:watch-dir "resources/public/css" :watch-path "/css"}
-           :modules {:runtime {:init-fn zero.demo.runtime.main/main}}}}}
+           :modules {:runtime {:init-fn demo.runtime.main/main}}}}}

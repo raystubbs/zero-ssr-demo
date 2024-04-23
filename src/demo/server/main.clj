@@ -1,4 +1,4 @@
-(ns zero.demo.server.main
+(ns demo.server.main
   (:require
    [zero.core :refer [act bnd << <<ctx <<act] :as z]
    [zero.html :as zh]
@@ -8,7 +8,8 @@
    [zero.extras.cdf :as cdf]
    [manifold.stream :as s]
    [aleph.http :as http]
-   [clojure.java.io :as io]))
+   [clojure.java.io :as io]
+   [demo.shared :as shared]))
 
 (defonce !posts (atom []))
 (defonce !sockets (atom #{}))
@@ -49,8 +50,7 @@
             [:head
              [:title "Zero SSR Demo"]
              [:script#init-db :type "application/transit+json" 
-              (cdf/write-str {:posts-markup (into [:div] (map render-post @!posts))})]
-             [:script :src "/js/runtime.js"]]
+              (cdf/write-str {:posts-markup (into [:div] (map render-post @!posts))})]]
             [:body
              [:div
               ::z/style {:display :grid
@@ -66,13 +66,14 @@
                ::z/bind {:value (bnd ::db/path [:inputs :content])}
                ::z/on {:input (act [::db/patch [{:path [:inputs :content] :value (<<ctx ::z/event.data)}]])}]
 
-              [:button
+              [::shared/fancy-button
                ::z/on {:click (act
                                 [:at-server (<<act [:server/create-post (<< ::db/path [:inputs])])]
                                 [::db/patch [{:path [:inputs] :value {}}]])}
                "Post"]]
              [::dom/echo
-              ::z/bind {:vdom (bnd ::db/path [:posts-markup])}]]])})
+              ::z/bind {:vdom (bnd ::db/path [:posts-markup])}]
+             [:script :src "/js/runtime.js"]]])})
 
 (defn handle-msg [s msg]
   (let [{:keys [id kind value] :as parsed} (cdf/read-str msg)]
@@ -93,7 +94,7 @@
       nil)
     {:status 404}))
 
-(defn handler [req]
+(defn handler [req] 
   (case (:uri req)
     "/" (page req)
     "/socket" (socket req)
